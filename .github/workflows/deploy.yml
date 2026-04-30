@@ -1,0 +1,47 @@
+name: Deploy to EKS (Kubernetes Monitoring)
+
+on:
+  push:
+    branches: ["main"]
+
+env:
+  AWS_REGION: ap-south-1
+  CLUSTER_NAME: monitoring-cluster
+
+jobs:
+  deploy:
+    name: Deploy to Kubernetes
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Install kubectl
+      run: |
+        curl -o kubectl https://amazon-eks.s3.us-west-2.amazonaws.com/latest/2023-11-14/bin/linux/amd64/kubectl
+        chmod +x kubectl
+        sudo mv kubectl /usr/local/bin/
+
+    - name: Update kubeconfig
+      run: |
+        aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME
+
+    - name: Deploy Namespace
+      run: |
+        kubectl apply -f manifests/namespace.yaml
+
+    - name: Deploy Node Exporter
+      run: |
+        kubectl apply -f manifests/node-exporter-daemonset.yaml
+
+    - name: Deploy Prometheus Config
+      run: |
+        kubectl apply -f manifests/prometheus-config.yaml
